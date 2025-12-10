@@ -595,6 +595,60 @@ function findGoalkeeper(players) {
   return players.reduce((gk, p) => (p.left < gk.left ? p : gk), players[0]);
 }
 
+// 📊 Conta jogadores por terços do campo (sem DOM)
+function analyzeFieldThirds(players) {
+  if (!players || players.length === 0) {
+    return { def: 0, mid: 0, att: 0, shape: "0-0-0", orientation: "defense-bottom" };
+  }
+
+  const ys = players.map(p => p.top);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const range = maxY - minY || 1;
+
+  const DEF_LIMIT = minY + range * (2 / 8);
+  const MID_LIMIT = minY + range * (5 / 8);
+
+  const VALID = [
+    [4, 4, 2], [4, 1, 4, 1], [4, 3, 3], [4, 2, 3, 1], [4, 2, 4],
+    [3, 5, 2], [5, 4, 1], [4, 5, 1], [3, 4, 3], [5, 3, 2]
+  ];
+
+  const scoreShape = (arr) => VALID.reduce((best, v) => {
+    const minLen = Math.min(v.length, arr.length);
+    let diff = 0;
+    for (let i = 0; i < minLen; i++) diff += Math.abs(v[i] - arr[i]);
+    diff += Math.abs(v.length - arr.length) * 2;
+    return Math.min(best, diff);
+  }, Infinity);
+
+  const count = (orientation) => {
+    let def = 0, mid = 0, att = 0;
+    players.forEach(p => {
+      if (orientation === "defense-top") {
+        if (p.top < DEF_LIMIT) def++;
+        else if (p.top < MID_LIMIT) mid++;
+        else att++;
+      } else {
+        if (p.top >= MID_LIMIT) def++;
+        else if (p.top >= DEF_LIMIT) mid++;
+        else att++;
+      }
+    });
+    return { def, mid, att, shape: `${def}-${mid}-${att}`, orientation };
+  };
+
+  const bottom = count("defense-bottom");
+  const top = count("defense-top");
+
+  const arrBottom = bottom.shape.split("-").map(Number);
+  const arrTop = top.shape.split("-").map(Number);
+  const scoreBottom = scoreShape(arrBottom);
+  const scoreTop = scoreShape(arrTop);
+
+  return scoreBottom <= scoreTop ? bottom : top;
+}
+
 function detectHybridFormation(players) {
   if (!players || players.length < 4) return "indefinido";
 
